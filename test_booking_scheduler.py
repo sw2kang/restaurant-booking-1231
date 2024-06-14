@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from booking_scheduler import BookingScheduler
 from schedule import Schedule
@@ -18,23 +18,12 @@ UNDER_CAPACITY = 1
 CAPACITY_PER_HOUR = 3
 
 
-class TestableBookingScheduler(BookingScheduler):
-    def __init__(self, capacity_per_hour, date_time):
-        super().__init__(capacity_per_hour)
-        self._date_time = date_time
-
-    def get_now(self):
-        return datetime.strptime(self._date_time, "%Y/%m/%d %H:%M")
-
-
 class BookingSchedulerTest(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.booking_scheduler = BookingScheduler(CAPACITY_PER_HOUR)
         self.sms_sender = Mock()
         self.mail_sender = Mock()
-        # self.testable_sms_sender = TestableSmsSender()
-        # self.testable_mail_sender = TestableMailSender()
         self.booking_scheduler.set_sms_sender(self.sms_sender)
         self.booking_scheduler.set_mail_sender(self.mail_sender)
 
@@ -91,17 +80,15 @@ class BookingSchedulerTest(unittest.TestCase):
 
         self.mail_sender.send_mail.assert_called_once()
 
-    def test_현재날짜가_일요일인_경우_예약불가_예외처리(self):
-        self.booking_scheduler = TestableBookingScheduler(CAPACITY_PER_HOUR, "2024/03/24 08:00")
-
+    @patch.object(BookingScheduler, 'get_now', return_value=datetime.strptime("2024/03/24 08:00", "%Y/%m/%d %H:%M"))
+    def test_현재날짜가_일요일인_경우_예약불가_예외처리(self, mock):
         with self.assertRaises(ValueError):
             new_schedule = Schedule(ON_HOUR, UNDER_CAPACITY, CUSTOMER_WITH_MAIL)
             self.booking_scheduler.add_schedule(new_schedule)
             self.fail()
 
-    def test_현재날짜가_일요일이_아닌경우_예약가능(self):
-        self.booking_scheduler = TestableBookingScheduler(CAPACITY_PER_HOUR, "2024/03/25 08:00")
-
+    @patch.object(BookingScheduler, 'get_now', return_value=datetime.strptime("2024/03/25 08:00", "%Y/%m/%d %H:%M"))
+    def test_현재날짜가_일요일이_아닌경우_예약가능(self, mock):
         new_schedule = Schedule(ON_HOUR, UNDER_CAPACITY, CUSTOMER_WITH_MAIL)
         self.booking_scheduler.add_schedule(new_schedule)
         self.assertTrue(self.booking_scheduler.has_schedule(new_schedule))
